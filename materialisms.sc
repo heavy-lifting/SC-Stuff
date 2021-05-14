@@ -1,15 +1,11 @@
 MIDIClient.init;
 
 
-~midiOut = MIDIOut.newByName("VT-4", "VT-4"); // substitute your own device here
+~midiOut = MIDIOut.newByName("APC Key 25", "APC Key 25"); // substitute your own device here
+
 
 
 ~midiOut1 = MIDIOut.newByName("Rocket", "Rocket"); // substitute your own device here
-
-~midiOut2 = MIDIOut.newByName("KAOSSILATOR PRO", "KAOSSILATOR PRO"); // substitute your own device here
-
-~midiOut3= MIDIOut.newByName("Microsoft GS Wavetable Synth", "Microsoft GS Wavetable Synth"); // substitute your own device here
-
 
 
 /*
@@ -21,7 +17,7 @@ This is an example startup file. You can load it from your startup file
 (
 // configure the sound server: here you could add hardware specific options
 // see http://doc.sccode.org/Classes/ServerOptions.html
-s.options.numBuffers = 1024 * 512; // increase this if you need to load more samples
+s.options.numBuffers = 1024 * 2056; // increase this if you need to load more samples
 s.options.memSize = 8192 * 32; // increase this if you get "alloc failed" messages
 s.options.maxNodes = 1024 * 32; // increase this if you are getting drop outs and the message "too many nodes"
 s.options.numOutputBusChannels = 2; // set this to your hardware output channel size, if necessary
@@ -48,26 +44,63 @@ s.latency = 0.3; // increase this if you get "late" messages
 
 
 
-~dirt.soundLibrary.addMIDI(\vt4, ~midiOut);
+~dirt.soundLibrary.addMIDI(\apc, ~midiOut);
 
 
 ~dirt.soundLibrary.addMIDI(\ro, ~midiOut1);
 
 
-~dirt.soundLibrary.addMIDI(\ko, ~midiOut2);
-
-~dirt.soundLibrary.addMIDI(\ms, ~midiOut3);
-
-
-
 ~midiOut.latency = 0.45;
 
-~midiOut1.latency = 0.1;
 
-~midiOut2.latency = 0.45;
+**********MIDI IN**********
 
-~midiOut3.latency = 0.45;
+//To accept MIDI in to Tidal we need to run a bit more code - this lets SuperCollider convert MIDI inputs from your controller into OSC messages
 
+// Evaluate the block below to start the mapping MIDI -> OSC.
+
+(
+var on, off, cc;
+var osc;
+
+osc = NetAddr.new("127.0.0.1", 6010);
+
+MIDIClient.init;
+MIDIIn.connectAll;
+
+on = MIDIFunc.noteOn({ |val, num, chan, src|
+
+	osc.sendMsg("/ctrl", "n", num);
+
+
+//	osc.sendMsg("/ctrl", num.asString, val/127);
+
+
+});
+
+off = MIDIFunc.noteOff({ |val, num, chan, src|
+	osc.sendMsg("/ctrl", "n", 0);
+});
+
+cc = MIDIFunc.cc({ |val, num, chan, src|
+	osc.sendMsg("/ctrl", num.asString, val/127);
+
+});
+
+
+if (~stopMidiToOsc != nil, {
+	~stopMidiToOsc.value;
+});
+
+~stopMidiToOsc = {
+	on.free;
+	off.free;
+	cc.free;
+};
+)
+
+// Evaluate the line below to stop it.
+~stopMidiToOsc.value;
 
 
 s.scope
